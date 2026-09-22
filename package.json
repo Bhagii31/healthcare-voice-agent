@@ -4,6 +4,13 @@
   "description": "Real-time healthcare patient education voice agent with safety guardrails",
   "main": "dist/index.js",
   "type": "commonjs",
+  "license": "MIT",
+  "author": "Bhargavi",
+  "homepage": "https://bhargavi-voiceagent.world",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bhagii31/healthcare-voice-agent.git"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/demo.ts",
@@ -33,6 +40,6 @@
     "typescript": "^5.6.3"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   }
 }

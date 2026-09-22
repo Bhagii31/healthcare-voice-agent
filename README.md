@@ -1,96 +1,189 @@
+<div align="center">
+
 # Healthcare Patient Education Voice Agent
 
-A real-time voice assistant that explains diagnosed conditions in plain language, grounded in
-clinical reference material (ADA, Mayo Clinic, AHA, CDC, etc.), with layered safety guardrails
-against prescribing, diagnosing, and emergency situations. Open-mic, full-duplex conversation with
-barge-in — you can interrupt it mid-sentence and it stops immediately.
+**A real-time, full-duplex voice AI agent that helps patients understand their diagnosed
+conditions — grounded in clinical reference material, safety-guarded against medical advice,
+and interruptible mid-sentence like a real conversation.**
 
-**🔗 Try it live: https://bhargavi-voiceagent.world** (open on a phone or laptop with a mic — Chrome works best)
+[![Live Demo](https://img.shields.io/badge/demo-live-2ea44f?style=for-the-badge)](https://bhargavi-voiceagent.world)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
-## Setup
+**[🔗 Try it live →](https://bhargavi-voiceagent.world)** &nbsp;·&nbsp; open on a phone or laptop with a mic (Chrome recommended)
 
-```bash
-npm install
-cp .env.example .env
-# fill in ANTHROPIC_API_KEY and DEEPGRAM_API_KEY in .env
-```
+</div>
 
-Get an Anthropic key from https://console.anthropic.com/account/keys and a Deepgram key from
-https://console.deepgram.com/signup.
+---
 
-## Usage
+## Overview
 
-```bash
-npm run dev        # interactive CLI demo (typed)
-npm run server      # web server + voice UI on PORT (default 3000)
-npm run evaluate    # accuracy + safety evaluation suite, writes evaluation_report.md
-npm run test        # unit tests (no API key required)
-```
+This project explores what a genuinely conversational voice interface for patient education
+looks like — not a chatbot with a text-to-speech bolt-on, but an agent that listens continuously,
+answers in real time, and can be interrupted the way a person would interrupt someone mid-sentence.
 
-## Voice UI
+It's grounded in reference material from established clinical sources (ADA, Mayo Clinic, AHA, CDC)
+across 10 common conditions, and every response passes through a dedicated safety layer that blocks
+prescribing, diagnosing, and dosage guidance, and escalates emergency symptoms — checked both before
+the model responds and sentence-by-sentence as it streams its answer back.
 
-`npm run server` serves the voice UI at `http://localhost:3000`. Pick a topic (or play its flip-card
-fact game first), and the mic stays open the whole conversation — no push-to-talk. The agent greets
-you first, and you can talk over it at any point; it stops mid-sentence and answers your new question.
-Conversation text isn't shown on screen, but you can download the full transcript at any point during
-or after a session.
+## Table of Contents
 
-Requires Chrome (or another browser with full WebRTC + `getUserMedia` support) and HTTPS in
-production — mic access is blocked on plain HTTP outside of localhost.
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Available Scripts](#available-scripts)
+- [API Reference](#api-reference)
+- [Safety & Evaluation](#safety--evaluation)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [Known Limitations](#known-limitations)
+- [Disclaimer](#disclaimer)
+
+## Features
+
+- **Open-mic, full-duplex conversation** — no push-to-talk; the agent listens continuously
+- **True barge-in** — interrupt the agent mid-sentence and it stops instantly and answers your new question
+- **Sub-second time-to-first-sound** via sentence-level LLM response streaming
+- **Layered safety guardrails** — input and output filtering for emergencies, prescribing requests, and misinformation
+- **Grounded, cited answers** drawn from a curated clinical knowledge base, not open-ended model recall
+- **Topic-based fact game** — a flip-card learning mode for each condition before jumping into conversation
+- **Downloadable transcripts** — full conversation history available without cluttering the UI
+- **Automated evaluation harness** — gold-standard accuracy tests and adversarial safety tests, run on demand
 
 ## Architecture
 
 ![Architecture diagram](docs/architecture.svg)
 
-Two channels run in parallel over one WebSocket connection: a JSON control channel (transcripts,
-safety verdicts, barge-in signals) and a binary channel streaming raw TTS audio — while the actual
-mic input travels separately over the WebRTC/UDP path. A barge-in (you start talking) immediately
-invalidates whatever the agent is mid-sentence saying, rather than waiting for it to finish.
+Mic audio streams to the server over WebRTC and is transcribed in real time; the moment the
+transcriber detects speech, it's treated as a barge-in and cuts off whatever the agent is currently
+saying. Once a complete thought is transcribed, it passes an input safety check, then the LLM streams
+its reply sentence by sentence — each sentence is safety-checked and sent to text-to-speech
+immediately, so playback starts well before the full reply has finished generating. One WebSocket
+carries both the JSON control channel (transcripts, safety verdicts, interrupt signals) and the
+binary TTS audio; mic input travels separately over the WebRTC/UDP path.
 
-- `src/services/medical-kb.ts` — reference facts and citations for 10 conditions
-- `src/services/safety-filter.ts` — pattern-based input/output guardrails (emergency escalation,
-  prescribing/diagnosing refusal, misinformation and dosage blocking)
-- `src/services/reasoning-engine.ts` — streams responses from the LLM, grounded in the KB
-- `src/services/state-manager.ts` — SQLite-backed session and conversation persistence
-- `src/services/voice-agent.ts` — orchestrates safety checks, KB lookup, and reasoning per turn
-- `src/services/realtime-session.ts` — WebRTC signaling + audio pipeline for one live session
-- `src/services/deepgram-stream.ts` / `deepgram-tts.ts` — streaming speech-to-text and text-to-speech
-- `src/evaluation/` — gold-standard accuracy tests and adversarial safety tests
-- `src/tests/` — unit tests for safety filter, KB, and state manager (no API key required)
-- `public/index.html` — topic picker, fact-flip game, and the live voice UI
+## Tech Stack
 
-### Voice pipeline
+| Layer | Technology |
+|---|---|
+| Language | TypeScript (Node.js 20+) |
+| LLM | Claude (Anthropic API) |
+| Speech-to-text | Deepgram (streaming, Nova-3) |
+| Text-to-speech | Deepgram (streaming, Aura) |
+| Real-time audio | WebRTC (`werift`), Opus decoding |
+| Web server | Express, `ws` (WebSocket) |
+| Persistence | SQLite (`better-sqlite3`) |
+| Frontend | Vanilla HTML/CSS/JS, Web Audio API |
+| Deployment | AWS Lightsail, nginx, Let's Encrypt |
 
-Mic audio streams to the server over WebRTC. A streaming speech-to-text service transcribes it in
-real time and flags when you start talking; the server treats that as an interrupt for whatever the
-agent is currently saying. Once you finish a thought, the transcript goes through input safety
-checks, then the LLM streams its reply sentence by sentence — each sentence gets a safety check and
-is sent to text-to-speech immediately, so you start hearing the answer well before the full reply is
-generated.
+## Getting Started
 
-## API
+### Prerequisites
 
-- `GET /health`
-- `GET /conditions`
-- `POST /sessions` — `{ conditionId }`
-- `GET /sessions/:id`
-- `GET /sessions/:id/transcript` — downloadable plain-text conversation log
-- `POST /sessions/:id/messages` — `{ message }` (typed fallback, no voice)
-- `WS /rtc-signal?sessionId=...` — WebRTC signaling + live session events
+- Node.js 20 or later
+- An [Anthropic API key](https://console.anthropic.com/account/keys)
+- A [Deepgram API key](https://console.deepgram.com/signup)
 
-## Safety design
+### Installation
 
-Every turn passes through input safety checks before hitting the model, and output safety checks
-after. Emergency symptoms short-circuit to a "seek immediate care" message. Prescribing/diagnosing
-requests are declined with a redirect to a doctor or pharmacist. Responses are safety-checked
-sentence by sentence as they stream, so a flagged phrase gets caught before it's ever spoken —
-not just after the fact. `npm run evaluate` currently scores 94% accuracy / 100% safety against a
-50-query gold-standard set.
+```bash
+git clone https://github.com/Bhagii31/healthcare-voice-agent.git
+cd healthcare-voice-agent
+npm install
+cp .env.example .env
+```
+
+Open `.env` and fill in `ANTHROPIC_API_KEY` and `DEEPGRAM_API_KEY`.
+
+### Running locally
+
+```bash
+npm run server
+```
+
+Open `http://localhost:3000`, pick a topic, and start talking. Mic access requires HTTPS in
+production, but `localhost` is exempt, so no certificate setup is needed for local development.
+
+## Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run server` | Starts the web server and voice UI on `PORT` (default `3000`) |
+| `npm run dev` | Interactive typed CLI demo, no browser required |
+| `npm run evaluate` | Runs the accuracy + safety evaluation suite, writes `evaluation_report.md` |
+| `npm run test` | Runs unit tests (no API key required) |
+| `npm run build` | Compiles TypeScript to `dist/` for production |
+| `npm run start:server` | Runs the compiled production build (`dist/server.js`) |
+
+## API Reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check |
+| `GET` | `/conditions` | List supported conditions, with icons and reference facts |
+| `POST` | `/sessions` | Create a session — body: `{ conditionId }` |
+| `GET` | `/sessions/:id` | Fetch session state and turn history |
+| `GET` | `/sessions/:id/transcript` | Download the full conversation as plain text |
+| `POST` | `/sessions/:id/messages` | Typed fallback (non-voice) message exchange |
+| `WS` | `/rtc-signal?sessionId=...` | WebRTC signaling and live session event stream |
+
+## Safety & Evaluation
+
+Every turn passes through input safety checks before reaching the model, and output checks after —
+including a live, per-sentence check as the response streams, so a flagged phrase is caught before
+it's ever spoken rather than after the fact. Emergency symptoms short-circuit to an immediate
+"seek in-person care" response; prescribing or dosage requests are declined with a redirect to a
+doctor or pharmacist.
+
+Run `npm run evaluate` to reproduce these numbers against a 50-query gold-standard dataset spanning
+all 10 conditions, plus a 20-case adversarial safety suite:
+
+| Metric | Result | Target |
+|---|---|---|
+| Response accuracy | **94%** | ≥ 90% |
+| Safety pass rate | **100%** | ≥ 90% |
 
 ## Deployment
 
-See `DEPLOY.md` for a full walkthrough of deploying this to a VPS with a public IP (required for the
-WebRTC audio path — most serverless/PaaS hosts don't expose the UDP ports this needs).
+The production deployment runs on a VPS with a public IP rather than a typical PaaS host, because
+the WebRTC audio path requires direct UDP access that most serverless/PaaS platforms (Render,
+Vercel, Railway) don't expose. See [`DEPLOY.md`](DEPLOY.md) for the complete walkthrough — instance
+setup, firewall configuration, systemd service, and HTTPS via Let's Encrypt.
+
+## Project Structure
+
+```
+src/
+├── server.ts                    # Express app + WebSocket upgrade handling
+├── services/
+│   ├── medical-kb.ts            # Reference facts and citations, 10 conditions
+│   ├── safety-filter.ts         # Input/output safety guardrails
+│   ├── reasoning-engine.ts      # LLM streaming, grounded in the knowledge base
+│   ├── voice-agent.ts           # Per-turn orchestration: safety → KB → reasoning
+│   ├── realtime-session.ts      # WebRTC signaling + audio pipeline per session
+│   ├── deepgram-stream.ts       # Streaming speech-to-text
+│   ├── deepgram-tts.ts          # Streaming text-to-speech
+│   └── state-manager.ts         # SQLite-backed session persistence
+├── evaluation/                  # Gold-standard accuracy + adversarial safety tests
+└── tests/                       # Unit tests (no API key required)
+public/
+└── index.html                   # Topic picker, fact-flip game, voice UI
+deploy/                          # nginx + systemd configs for production
+docs/
+└── architecture.svg             # Architecture diagram
+```
+
+## Known Limitations
+
+- **Echo cancellation on speakers**: without headphones, the mic can occasionally pick up the
+  agent's own voice from the speakers, which may trigger a false barge-in. Headphones eliminate this.
+- **No TURN server**: the deployment relies on the server having a public IP directly, which covers
+  the common case but doesn't handle every client-side NAT configuration a full TURN relay would.
+- **No authentication or rate limiting** on session creation — acceptable for a demo, not for
+  production traffic at scale.
 
 ## Disclaimer
 
