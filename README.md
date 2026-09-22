@@ -40,34 +40,7 @@ production — mic access is blocked on plain HTTP outside of localhost.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Browser
-        Mic["🎤 Mic"]
-        Spk["🔊 Speaker\n(Web Audio)"]
-    end
-
-    subgraph Server["Node.js Server"]
-        RTC["WebRTC session\n(werift + Opus decode)"]
-        STT["Deepgram\nStreaming STT"]
-        Filter1["Safety Filter\n(input)"]
-        Agent["Voice Agent"]
-        LLM["Claude\n(Anthropic API)"]
-        Filter2["Safety Filter\n(output, per sentence)"]
-        TTS["Deepgram\nStreaming TTS"]
-        DB[("SQLite\nsession store")]
-    end
-
-    Mic -- "audio (UDP/WebRTC)" --> RTC
-    RTC -- PCM --> STT
-    STT -- "transcript +\nbarge-in signal" --> Filter1
-    Filter1 -- "safe text" --> Agent
-    Agent --> LLM
-    LLM -- "streamed sentences" --> Filter2
-    Filter2 -- "safe sentence" --> TTS
-    TTS -- "PCM audio (WebSocket)" --> Spk
-    Agent -.-> DB
-```
+![Architecture diagram](docs/architecture.svg)
 
 Two channels run in parallel over one WebSocket connection: a JSON control channel (transcripts,
 safety verdicts, barge-in signals) and a binary channel streaming raw TTS audio — while the actual
