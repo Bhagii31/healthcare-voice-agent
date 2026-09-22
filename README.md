@@ -1,6 +1,6 @@
 <div align="center">
 
-# Healthcare Patient Education Voice Agent
+# Patient Education Voice Agent
 
 **A real-time, full-duplex voice AI agent that helps patients understand their diagnosed
 conditions — grounded in clinical reference material, safety-guarded against medical advice,
