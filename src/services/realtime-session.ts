@@ -27,7 +27,6 @@ function stripForSpeech(text: string): string {
 
 function createPeerConnection(): RTCPeerConnection {
   if (!config.publicIp) {
-    // Local dev: default host-candidate behavior already works fine on one machine.
     return new RTCPeerConnection();
   }
   return new RTCPeerConnection({
@@ -43,10 +42,7 @@ export function handleRealtimeConnection(ws: WSWebSocket, sessionId: string, age
   const deepgramTts = new DeepgramTts(TTS_SAMPLE_RATE);
   const decoder = new OpusScript(OPUS_SAMPLE_RATE, OPUS_CHANNELS, OpusScript.Application.VOIP);
 
-  // Bumped on every new user turn AND every detected barge-in. A turn keeps emitting events
-  // only while its generation is still the current one — this is what makes an interrupt
-  // immediate: we don't need to cancel the in-flight LLM call, we just stop forwarding its
-  // output the instant a newer generation exists.
+  // bumped on each new turn / barge-in so stale turns stop emitting once superseded
   let generation = 0;
 
   const send = (payload: unknown) => {
@@ -84,8 +80,6 @@ export function handleRealtimeConnection(ws: WSWebSocket, sessionId: string, age
         if (event.type === "chunk") {
           deepgramTts.speak(stripForSpeech(event.text));
         } else if (event.type === "done" && event.response.citations.length === 0 && event.response.confidence <= 0.5) {
-          // Safety-redirect / emergency / prescribing-decline responses skip the chunk stream
-          // entirely, so speak the full redirect text directly.
           deepgramTts.speak(stripForSpeech(event.response.text));
         }
       }
@@ -112,8 +106,6 @@ export function handleRealtimeConnection(ws: WSWebSocket, sessionId: string, age
   deepgramStt
     .connect(
       () => {
-        // A new generation immediately invalidates whatever turn is currently streaming,
-        // which is what makes this a real interrupt rather than a queued one.
         generation++;
         deepgramTts.clear();
         send({ type: "user_speech_started" });

@@ -33,10 +33,7 @@ export class DeepgramStream {
 
     this.socket.on("message", (data) => {
       if (data.type === "SpeechStarted") {
-        // Don't fire the barge-in signal off raw voice-activity alone — on speakers (not
-        // headphones) the mic picks up the agent's own voice, and VAD alone can't tell that
-        // apart from the user actually talking. Wait for the next branch instead, which only
-        // fires once Deepgram has actually recognized real words.
+        // wait for real words below, not just VAD - avoids false triggers from speaker echo
         announcedSpeechStart = false;
         return;
       }

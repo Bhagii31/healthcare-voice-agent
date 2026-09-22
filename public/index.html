@@ -376,10 +376,7 @@ function showMetrics(response, firstSoundMs) {
   `;
 }
 
-// Agent audio is real streamed PCM from Deepgram TTS (not the browser's speechSynthesis),
-// played through a normal Web Audio graph so it lands in the same audio path getUserMedia's
-// echoCancellation can actually reference and cancel out of the mic — this is what makes
-// barge-in reliable instead of the agent hearing and interrupting itself.
+// streamed PCM from Deepgram TTS, played via Web Audio (not speechSynthesis) so echoCancellation can pick it up
 const TTS_SAMPLE_RATE = 24000;
 let audioCtx = null;
 let nextPlayTime = 0;

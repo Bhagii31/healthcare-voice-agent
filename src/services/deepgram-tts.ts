@@ -21,8 +21,7 @@ export class DeepgramTts {
     });
 
     this.socket.on("message", (data) => {
-      // The SDK delivers audio frames as a Blob (its cross-platform binary wrapper) even in
-      // Node, not a Buffer/ArrayBuffer, so that's what actually needs checking here.
+      // audio frames come back as Blob here, not Buffer
       if (data instanceof Blob) {
         data
           .arrayBuffer()

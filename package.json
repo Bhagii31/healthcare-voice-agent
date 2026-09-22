@@ -1,7 +1,7 @@
 {
   "name": "healthcare-voice-agent",
   "version": "1.0.0",
-  "description": "Healthcare patient education voice agent with safety guardrails, backed by Claude",
+  "description": "Real-time healthcare patient education voice agent with safety guardrails",
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
