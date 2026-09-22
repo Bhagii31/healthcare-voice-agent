@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Healthcare Voice Agent</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-dark: #1e40af;
+    --accent-soft: #eff6ff;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --border: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 48px;
+  }
+  .app { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 0.92rem; margin-bottom: 24px; }
+  .hidden { display: none !important; }
+  button {
+    font-size: 0.95rem;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:active { transform: scale(0.97); }
+  button:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+  button.secondary { background: white; color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: #f3f4f6; }
+  button.ghost { background: transparent; color: var(--accent); padding: 6px 4px; font-size: 0.85rem; }
+  button.ghost:hover { background: transparent; text-decoration: underline; }
+
+  /* --- Topic grid --- */
+  .topic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .topic-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .topic-card:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
+  .topic-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+  }
+  .topic-name { font-weight: 700; font-size: 1rem; }
+  .topic-overview { color: var(--muted); font-size: 0.82rem; line-height: 1.35; flex-grow: 1; }
+  .topic-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .topic-actions button { flex: 1; padding: 8px 10px; font-size: 0.85rem; }
+
+  #download-last-btn { width: 100%; margin-top: 18px; }
+
+  /* --- Game view --- */
+  .back-btn { margin-bottom: 14px; }
+  .game-sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 18px; }
+  .flip-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    perspective: 1000px;
+  }
+  .flip-card {
+    height: 170px;
+    cursor: pointer;
+    position: relative;
+  }
+  .flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.5s;
+    transform-style: preserve-3d;
+  }
+  .flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  .flip-front {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    gap: 6px;
+  }
+  .flip-back {
+    background: var(--card);
+    border: 1px solid var(--border);
+    transform: rotateY(180deg);
+    overflow-y: auto;
+    color: var(--text);
+  }
+  .flip-back .source { color: var(--muted); font-size: 0.72rem; margin-top: 8px; }
+  .game-progress { color: var(--muted); font-size: 0.85rem; margin: 16px 0 6px; }
+  .game-complete {
+    margin-top: 18px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 14px;
+    padding: 18px;
+    text-align: center;
+  }
+  .game-complete p { margin: 0 0 12px; font-weight: 600; color: #166534; }
+
+  /* --- Conversation view --- */
+  .convo-wrap { display: flex; flex-direction: column; align-items: center; }
+  .orb {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #60a5fa, var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    color: white;
+    margin: 10px 0 16px;
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .orb:active { transform: scale(0.96); }
+  .orb.listening { animation: pulse 1.4s infinite; }
+  .orb.speaking { background: radial-gradient(circle at 30% 30%, #34d399, var(--success)); animation: speak-pulse 0.6s infinite alternate; }
+  .orb.muted { background: #9ca3af; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
+    70% { box-shadow: 0 0 0 18px rgba(37, 99, 235, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+  }
+  @keyframes speak-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+  .status { color: var(--muted); font-size: 0.9rem; min-height: 1.2em; text-align: center; }
+  .condition-tag {
+    font-size: 0.78rem;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+  }
+  .metrics {
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .metrics span.blocked { color: var(--danger); font-weight: 600; }
+  .controls-row { display: flex; gap: 8px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Healthcare Patient Education Voice Agent</h1>
+  <div class="subtitle">Pick what's on your mind — talk it through out loud, or explore it at your own pace first.</div>
+
+  <section id="topic-view">
+    <div class="topic-grid" id="topic-grid"></div>
+    <button class="secondary hidden" id="download-last-btn">Download last conversation</button>
+  </section>
+
+  <section id="game-view" class="hidden">
+    <button class="secondary back-btn" id="game-back-btn">&larr; Back to topics</button>
+    <h2 id="game-title"></h2>
+    <p class="game-sub">Tap each card to reveal something worth knowing.</p>
+    <div class="flip-grid" id="flip-grid"></div>
+    <div class="game-progress" id="game-progress"></div>
+    <div class="game-complete hidden" id="game-complete">
+      <p>You've been through all of it — that's real effort toward understanding your health today.</p>
+      <button id="game-start-convo-btn">Talk about it now</button>
+    </div>
+  </section>
+
+  <section id="convo-view" class="hidden">
+    <div class="convo-wrap">
+      <div class="condition-tag" id="condition-tag"></div>
+      <div class="orb" id="orb" title="Mute microphone">🎤</div>
+      <div class="status" id="status-line">Connecting...</div>
+      <div id="last-metrics"></div>
+      <div class="controls-row">
+        <button class="secondary" id="mute-btn">Mute replies</button>
+        <button class="secondary" id="download-btn">Download conversation</button>
+        <button class="secondary" id="end-btn">End conversation</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const topicView = document.getElementById('topic-view');
+const topicGrid = document.getElementById('topic-grid');
+const downloadLastBtn = document.getElementById('download-last-btn');
+
+const gameView = document.getElementById('game-view');
+const gameBackBtn = document.getElementById('game-back-btn');
+const gameTitle = document.getElementById('game-title');
+const flipGrid = document.getElementById('flip-grid');
+const gameProgress = document.getElementById('game-progress');
+const gameComplete = document.getElementById('game-complete');
+const gameStartConvoBtn = document.getElementById('game-start-convo-btn');
+
+const convoView = document.getElementById('convo-view');
+const conditionTag = document.getElementById('condition-tag');
+const orb = document.getElementById('orb');
+const statusLine = document.getElementById('status-line');
+const lastMetrics = document.getElementById('last-metrics');
+const muteBtn = document.getElementById('mute-btn');
+const downloadBtn = document.getElementById('download-btn');
+const endBtn = document.getElementById('end-btn');
+
+let conditions = [];
+let sessionId = null;
+let lastSessionId = null;
+let muted = false;
+let pc = null;
+let ws = null;
+let micStream = null;
+let micEnabled = true;
+let firstChunkAt = null;
+let turnStartedAt = performance.now();
+let pendingGameConditionId = null;
+
+const ENCOURAGEMENTS = [
+  "Learning about your health, one small step at a time, genuinely counts for something.",
+  "You showed up today to understand this better — that's worth feeling good about.",
+  "Being curious about your own body is one of the best things you can do for yourself.",
+  "There's no rush here. Understanding this a little more than yesterday is enough.",
+];
+
+function showView(view) {
+  [topicView, gameView, convoView].forEach((v) => v.classList.add('hidden'));
+  view.classList.remove('hidden');
+}
+
+async function loadConditions() {
+  const res = await fetch('/conditions');
+  conditions = await res.json();
+  renderTopicGrid();
+}
+
+function renderTopicGrid() {
+  topicGrid.innerHTML = conditions
+    .map(
+      (c) => `
+      <div class="topic-card" data-id="${c.id}">
+        <div class="topic-icon">${c.icon}</div>
+        <div class="topic-name">${c.name}</div>
+        <div class="topic-overview">${c.overview}</div>
+        <div class="topic-actions">
+          <button class="talk-btn" data-id="${c.id}">Talk</button>
+          <button class="secondary game-btn" data-id="${c.id}">Play</button>
+        </div>
+      </div>
+    `
+    )
+    .join('');
+
+  topicGrid.querySelectorAll('.talk-btn').forEach((btn) => {
+    btn.addEventListener('click', () => startConversation(btn.dataset.id));
+  });
+  topicGrid.querySelectorAll('.game-btn').forEach((btn) => {
+    btn.addEventListener('click', () => openGame(btn.dataset.id));
+  });
+}
+
+function openGame(conditionId) {
+  const condition = conditions.find((c) => c.id === conditionId);
+  if (!condition) return;
+  pendingGameConditionId = conditionId;
+  gameTitle.textContent = `${condition.icon} ${condition.name}`;
+  gameComplete.classList.add('hidden');
+
+  const cards = [
+    ...condition.facts.map((f) => ({ text: f.answer, source: f.sources.join(', ') })),
+    { text: ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)], source: '' },
+  ];
+
+  flipGrid.innerHTML = cards
+    .map(
+      (card, i) => `
+      <div class="flip-card" data-index="${i}">
+        <div class="flip-inner">
+          <div class="flip-face flip-front"><span>✨</span><span>Tap to reveal</span></div>
+          <div class="flip-face flip-back">
+            <div>${card.text}</div>
+            ${card.source ? `<div class="source">Source: ${card.source}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    `
+    )
+    .join('');
+
+  let flippedCount = 0;
+  gameProgress.textContent = `0 of ${cards.length} revealed`;
+  flipGrid.querySelectorAll('.flip-card').forEach((el) => {
+    el.addEventListener('click', () => {
+      if (el.classList.contains('flipped')) return;
+      el.classList.add('flipped');
+      flippedCount += 1;
+      gameProgress.textContent = `${flippedCount} of ${cards.length} revealed`;
+      if (flippedCount === cards.length) {
+        gameComplete.classList.remove('hidden');
+      }
+    });
+  });
+
+  showView(gameView);
+}
+
+gameBackBtn.addEventListener('click', () => showView(topicView));
+gameStartConvoBtn.addEventListener('click', () => {
+  if (pendingGameConditionId) startConversation(pendingGameConditionId);
+});
+
+function showMetrics(response, firstSoundMs) {
+  const safetyOk = response.safety.verdict === 'PASS';
+  lastMetrics.innerHTML = `
+    <div class="metrics">
+      <span class="${safetyOk ? '' : 'blocked'}">Safety: ${response.safety.verdict}</span>
+      <span>Citations: ${response.citations.length}${response.citations.length ? ' (' + response.citations.map(c => c.source).join(', ') + ')' : ''}</span>
+      <span>Confidence: ${response.confidence.toFixed(2)}</span>
+      <span>Time to first sound: ${Math.max(0, firstSoundMs)}ms</span>
+      <span>Total: ${(response.latencyMs / 1000).toFixed(1)}s</span>
+    </div>
+  `;
+}
+
+// Agent audio is real streamed PCM from Deepgram TTS (not the browser's speechSynthesis),
+// played through a normal Web Audio graph so it lands in the same audio path getUserMedia's
+// echoCancellation can actually reference and cancel out of the mic — this is what makes
+// barge-in reliable instead of the agent hearing and interrupting itself.
+const TTS_SAMPLE_RATE = 24000;
+let audioCtx = null;
+let nextPlayTime = 0;
+let activeSources = [];
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: TTS_SAMPLE_RATE });
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playPcmChunk(arrayBuffer) {
+  if (muted) return;
+  const ctx = ensureAudioContext();
+  const int16 = new Int16Array(arrayBuffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+  const buffer = ctx.createBuffer(1, float32.length, TTS_SAMPLE_RATE);
+  buffer.copyToChannel(float32, 0);
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+
+  const startAt = Math.max(ctx.currentTime, nextPlayTime);
+  source.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+  activeSources.push(source);
+  source.onended = () => {
+    activeSources = activeSources.filter((s) => s !== source);
+  };
+}
+
+function stopPlayback() {
+  activeSources.forEach((s) => {
+    try { s.stop(); } catch { /* already stopped */ }
+  });
+  activeSources = [];
+  if (audioCtx) nextPlayTime = audioCtx.currentTime;
+}
+
+function wsUrl(id) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${location.host}/rtc-signal?sessionId=${encodeURIComponent(id)}`;
+}
+
+function resetTurnState() {
+  firstChunkAt = null;
+  turnStartedAt = performance.now();
+}
+
+function setOrbState(state) {
+  orb.classList.remove('listening', 'speaking', 'muted');
+  if (state) orb.classList.add(state);
+}
+
+function handleServerMessage(msg) {
+  if (msg.type === 'answer') {
+    pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp }).catch(console.error);
+  } else if (msg.type === 'ice' && msg.candidate) {
+    pc.addIceCandidate(msg.candidate).catch(console.error);
+  } else if (msg.type === 'user_speech_started') {
+    stopPlayback();
+    statusLine.textContent = 'Listening...';
+    setOrbState(micEnabled ? 'listening' : 'muted');
+    resetTurnState();
+  } else if (msg.type === 'user_transcript') {
+    statusLine.textContent = 'Thinking...';
+    setOrbState(null);
+  } else if (msg.type === 'chunk') {
+    if (firstChunkAt === null) {
+      firstChunkAt = performance.now();
+      statusLine.textContent = 'Speaking...';
+      setOrbState('speaking');
+    }
+  } else if (msg.type === 'done') {
+    const firstSoundMs = firstChunkAt !== null ? Math.round(firstChunkAt - turnStartedAt) : msg.response.latencyMs;
+    showMetrics(msg.response, firstSoundMs);
+    statusLine.textContent = micEnabled ? 'Listening...' : 'Mic muted';
+    setOrbState(micEnabled ? 'listening' : 'muted');
+  } else if (msg.type === 'error') {
+    statusLine.textContent = msg.message || 'Something went wrong.';
+  }
+}
+
+async function startRealtime(id) {
+  ws = new WebSocket(wsUrl(id));
+  ws.binaryType = 'arraybuffer';
+
+  ws.addEventListener('message', (event) => {
+    if (event.data instanceof ArrayBuffer) {
+      playPcmChunk(event.data);
+      return;
+    }
+    handleServerMessage(JSON.parse(event.data));
+  });
+  ws.addEventListener('close', () => {
+    statusLine.textContent = 'Disconnected. End and restart the conversation.';
+  });
+  ws.addEventListener('error', () => {
+    statusLine.textContent = 'Connection error. Try restarting the conversation.';
+  });
+
+  await new Promise((resolve, reject) => {
+    ws.addEventListener('open', resolve, { once: true });
+    ws.addEventListener('error', reject, { once: true });
+  });
+
+  pc = new RTCPeerConnection();
+  pc.onicecandidate = (event) => {
+    if (event.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: event.candidate }));
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') {
+      statusLine.textContent = 'Listening...';
+      setOrbState('listening');
+    } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      statusLine.textContent = 'Connection lost. End and restart the conversation.';
+      setOrbState(null);
+    }
+  };
+
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+  });
+  micStream.getAudioTracks().forEach((track) => pc.addTrack(track, micStream));
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+}
+
+function stopRealtime() {
+  if (micStream) micStream.getTracks().forEach((track) => track.stop());
+  if (pc) pc.close();
+  if (ws) ws.close();
+  micStream = null;
+  pc = null;
+  ws = null;
+}
+
+async function startConversation(conditionId) {
+  const condition = conditions.find((c) => c.id === conditionId);
+  const res = await fetch('/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conditionId }),
+  });
+  const session = await res.json();
+  sessionId = session.id;
+  micEnabled = true;
+  lastMetrics.innerHTML = '';
+  conditionTag.textContent = condition ? `${condition.icon} ${condition.name}` : '';
+  statusLine.textContent = 'Connecting...';
+  setOrbState(null);
+  showView(convoView);
+
+  if (!navigator.mediaDevices || !window.RTCPeerConnection) {
+    statusLine.textContent = 'This browser does not support the mic/WebRTC APIs needed. Try Chrome.';
+    orb.style.pointerEvents = 'none';
+    return;
+  }
+
+  ensureAudioContext();
+
+  try {
+    await startRealtime(sessionId);
+  } catch (err) {
+    console.error(err);
+    statusLine.textContent = 'Could not access the microphone or connect. Check permissions and try again.';
+  }
+}
+
+orb.addEventListener('click', () => {
+  if (!micStream) return;
+  micEnabled = !micEnabled;
+  micStream.getAudioTracks().forEach((track) => { track.enabled = micEnabled; });
+  statusLine.textContent = micEnabled ? 'Listening...' : 'Mic muted';
+  setOrbState(micEnabled ? 'listening' : 'muted');
+});
+
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? 'Unmute replies' : 'Mute replies';
+  if (muted) stopPlayback();
+});
+
+downloadBtn.addEventListener('click', () => {
+  if (!sessionId) return;
+  window.location.href = `/sessions/${sessionId}/transcript`;
+});
+
+downloadLastBtn.addEventListener('click', () => {
+  if (!lastSessionId) return;
+  window.location.href = `/sessions/${lastSessionId}/transcript`;
+});
+
+endBtn.addEventListener('click', () => {
+  stopRealtime();
+  stopPlayback();
+  lastSessionId = sessionId;
+  sessionId = null;
+  micEnabled = true;
+  lastMetrics.innerHTML = '';
+  downloadLastBtn.classList.remove('hidden');
+  showView(topicView);
+});
+
+loadConditions();
+</script>
+</body>
+</html>

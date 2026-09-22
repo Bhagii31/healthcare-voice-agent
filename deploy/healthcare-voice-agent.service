@@ -1,0 +1,24 @@
+# systemd service for the compiled production server. Keeps it running across reboots and
+# restarts it automatically if it crashes.
+#
+# Copy to /etc/systemd/system/healthcare-voice-agent.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now healthcare-voice-agent
+#
+# Adjust User/WorkingDirectory below to match wherever you deployed the app (see DEPLOY.md).
+
+[Unit]
+Description=Healthcare Voice Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/healthcare-voice-agent
+EnvironmentFile=/home/ubuntu/healthcare-voice-agent/.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
