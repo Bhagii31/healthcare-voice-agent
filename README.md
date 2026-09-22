@@ -5,7 +5,7 @@ clinical reference material (ADA, Mayo Clinic, AHA, CDC, etc.), with layered saf
 against prescribing, diagnosing, and emergency situations. Open-mic, full-duplex conversation with
 barge-in — you can interrupt it mid-sentence and it stops immediately.
 
-Live demo: https://bhargavi-voiceagent.world
+**🔗 Try it live: https://bhargavi-voiceagent.world** (open on a phone or laptop with a mic — Chrome works best)
 
 ## Setup
 
@@ -39,6 +39,40 @@ Requires Chrome (or another browser with full WebRTC + `getUserMedia` support) a
 production — mic access is blocked on plain HTTP outside of localhost.
 
 ## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser
+        Mic["🎤 Mic"]
+        Spk["🔊 Speaker\n(Web Audio)"]
+    end
+
+    subgraph Server["Node.js Server"]
+        RTC["WebRTC session\n(werift + Opus decode)"]
+        STT["Deepgram\nStreaming STT"]
+        Filter1["Safety Filter\n(input)"]
+        Agent["Voice Agent"]
+        LLM["Claude\n(Anthropic API)"]
+        Filter2["Safety Filter\n(output, per sentence)"]
+        TTS["Deepgram\nStreaming TTS"]
+        DB[("SQLite\nsession store")]
+    end
+
+    Mic -- "audio (UDP/WebRTC)" --> RTC
+    RTC -- PCM --> STT
+    STT -- "transcript +\nbarge-in signal" --> Filter1
+    Filter1 -- "safe text" --> Agent
+    Agent --> LLM
+    LLM -- "streamed sentences" --> Filter2
+    Filter2 -- "safe sentence" --> TTS
+    TTS -- "PCM audio (WebSocket)" --> Spk
+    Agent -.-> DB
+```
+
+Two channels run in parallel over one WebSocket connection: a JSON control channel (transcripts,
+safety verdicts, barge-in signals) and a binary channel streaming raw TTS audio — while the actual
+mic input travels separately over the WebRTC/UDP path. A barge-in (you start talking) immediately
+invalidates whatever the agent is mid-sentence saying, rather than waiting for it to finish.
 
 - `src/services/medical-kb.ts` — reference facts and citations for 10 conditions
 - `src/services/safety-filter.ts` — pattern-based input/output guardrails (emergency escalation,
